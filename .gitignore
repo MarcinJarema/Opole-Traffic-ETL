@@ -1,0 +1,14 @@
+# --- PLIKI SYSTEMOWE I ŚRODOWISKA ---
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# --- SEKRETY ---
+.env
+
+# --- DANE I LOGI ---
+logs/
+db/
+backups/
+*.db
