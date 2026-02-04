@@ -1,0 +1,12 @@
+services:
+  server:
+    build:
+      context: .
+    # Kluczowe: wczytanie kluczy z pliku .env
+    env_file:
+      - .env
+    # Kluczowe: mapowanie bazy danych, żeby nie znikała po restarcie
+    volumes:
+      - ./db:/app/db
+    # To sprawi, że bot wstanie sam po restarcie komputera/błędzie
+    restart: always
