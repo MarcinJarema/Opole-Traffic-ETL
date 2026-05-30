@@ -25,11 +25,24 @@ PROXY_LIST = [
     "http://186.121.235.66:8080",
 ]
 
+def _is_proxy_alive(proxy_url: str) -> bool:
+    """Sprawdza czy proxy odpowiada w ciągu 3 sekund."""
+    try:
+        proxies = {"http": proxy_url, "https": proxy_url}
+        requests.head("https://www.timeanddate.com", proxies=proxies, timeout=3)
+        return True
+    except Exception:
+        logging.debug(f"Proxy nieosiągalne: {proxy_url}")
+        return False
+
+
 def get_random_proxy() -> Dict[str, str]:
-    """Losuje serwer proxy z puli dostępnych adresów."""
-    if not PROXY_LIST:
+    """Losuje działający serwer proxy z puli. Zwraca pusty dict gdy żaden nie działa."""
+    working = [p for p in PROXY_LIST if _is_proxy_alive(p)]
+    if not working:
+        logging.warning("Żadne proxy z listy nie odpowiada — użyję połączenia bezpośredniego.")
         return {}
-    proxy_url = random.choice(PROXY_LIST)
+    proxy_url = random.choice(working)
     return {"http": proxy_url, "https": proxy_url}
 
 

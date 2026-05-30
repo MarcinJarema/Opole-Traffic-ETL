@@ -17,7 +17,7 @@ from backup_utils import perform_backup
 # --- KONFIGURACJA ---
 # Częstotliwość pętli w sekundach (np. 900s = 15 min).
 # Ustawione na 1s dla celów demonstracyjnych/testowych.
-CHECK_INTERVAL_SECONDS = 1  
+CHECK_INTERVAL_SECONDS = 900
 
 # Próg natężenia ruchu (0-10), powyżej którego logujemy ostrzeżenie
 JAM_ALERT_THRESHOLD = 8.0
