@@ -8,18 +8,14 @@ from typing import List, Dict, Any
 from db_utils import get_connection
 from config import TRAFFIC_POINTS, TOMTOM_API_URL, LAT_OP, LON_OP, TOMTOM_API_KEY
 
-def fetch_current_traffic() -> List[Dict[str, Any]]:
+def fetch_current_traffic(lat: float = LAT_OP, lon: float = LON_OP) -> List[Dict[str, Any]]:
     """
-    Pobiera aktualne dane o płynności ruchu z API TomTom.
-    
-    Wykonuje zapytanie HTTP GET do endpointu Flow Segment Data.
-    Oblicza autorski wskaźnik 'jam_factor' na podstawie różnicy
-    między prędkością aktualną a swobodną (Free Flow Speed).
+    Pobiera aktualne dane o płynności ruchu z API TomTom dla podanych współrzędnych.
+    Domyślnie używa aktywnego punktu z config.py.
     """
-    
-    # Parametry zapytania zgodne z dokumentacją TomTom API
+
     params = {
-        "point": f"{LAT_OP},{LON_OP}",
+        "point": f"{lat},{lon}",
         "unit": "KMPH",     # Jednostka: km/h
         "key": TOMTOM_API_KEY,
     }
@@ -55,8 +51,8 @@ def fetch_current_traffic() -> List[Dict[str, Any]]:
 
     record = {
         "timestamp": now_iso,
-        "lat": LAT_OP,
-        "lon": LON_OP,
+        "lat": lat,
+        "lon": lon,
         "speed": speed,
         "speed_limit": free_flow_speed,
         "jam_factor": jam_factor,

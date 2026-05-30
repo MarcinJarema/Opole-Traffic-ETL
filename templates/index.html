@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Opole Traffic Monitor</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      display: flex;
+      height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+    }
+
+    #map {
+      flex: 1;
+      cursor: crosshair;
+    }
+
+    #panel {
+      width: 340px;
+      display: flex;
+      flex-direction: column;
+      background: #1a1d27;
+      border-left: 1px solid #2a2d3a;
+      overflow-y: auto;
+    }
+
+    .panel-header {
+      padding: 20px;
+      border-bottom: 1px solid #2a2d3a;
+    }
+
+    .panel-header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .panel-header p {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .hint {
+      padding: 16px 20px;
+      font-size: 13px;
+      color: #6b7280;
+      text-align: center;
+      border-bottom: 1px solid #2a2d3a;
+    }
+
+    #traffic-info {
+      padding: 20px;
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .coords {
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .jam-meter {
+      background: #12151f;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .jam-label { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; }
+
+    .jam-value {
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 1;
+      margin: 8px 0 4px;
+    }
+
+    .jam-bar-wrap {
+      background: #1f2333;
+      border-radius: 99px;
+      height: 8px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .jam-bar {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.5s ease;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-box {
+      background: #12151f;
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .stat-box .label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; }
+    .stat-box .value { font-size: 22px; font-weight: 600; color: #fff; margin-top: 4px; }
+    .stat-box .unit  { font-size: 11px; color: #6b7280; }
+
+    .confidence-bar-wrap {
+      background: #12151f;
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .confidence-bar-wrap .label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+
+    .conf-bar-bg {
+      background: #1f2333;
+      border-radius: 99px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    .conf-bar {
+      height: 100%;
+      background: #3b82f6;
+      border-radius: 99px;
+      transition: width 0.5s ease;
+    }
+
+    .conf-pct { font-size: 13px; color: #fff; margin-top: 6px; }
+
+    #history-section {
+      padding: 0 20px 20px;
+      border-top: 1px solid #2a2d3a;
+    }
+
+    #history-section h2 {
+      font-size: 13px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 16px 0 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
+      text-align: left;
+      color: #6b7280;
+      font-weight: 500;
+      padding-bottom: 6px;
+    }
+
+    td {
+      padding: 5px 0;
+      border-bottom: 1px solid #1f2333;
+      color: #d1d5db;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    #loading {
+      display: none;
+      padding: 20px;
+      text-align: center;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    #error-msg {
+      display: none;
+      padding: 12px 20px;
+      background: #2d1515;
+      color: #f87171;
+      font-size: 13px;
+      border-left: 3px solid #ef4444;
+      margin: 16px 20px;
+      border-radius: 6px;
+    }
+
+    .marker-pin {
+      background: #3b82f6;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="panel">
+  <div class="panel-header">
+    <h1>Opole Traffic Monitor</h1>
+    <p>Dane: TomTom Flow API</p>
+  </div>
+
+  <div class="hint">Kliknij dowolne miejsce na mapie,<br>aby sprawdzić natężenie ruchu.</div>
+
+  <div id="loading">Pobieranie danych...</div>
+  <div id="error-msg"></div>
+
+  <div id="traffic-info">
+    <p class="coords" id="coords-label"></p>
+
+    <div class="jam-meter">
+      <div class="jam-label">Jam Factor</div>
+      <div class="jam-value" id="jam-value">—</div>
+      <div class="jam-bar-wrap">
+        <div class="jam-bar" id="jam-bar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-box">
+        <div class="label">Prędkość</div>
+        <div class="value" id="speed-val">—</div>
+        <div class="unit">km/h</div>
+      </div>
+      <div class="stat-box">
+        <div class="label">Limit (FFS)</div>
+        <div class="value" id="ffs-val">—</div>
+        <div class="unit">km/h</div>
+      </div>
+    </div>
+
+    <div class="confidence-bar-wrap">
+      <div class="label">Pewność danych</div>
+      <div class="conf-bar-bg">
+        <div class="conf-bar" id="conf-bar" style="width:0%"></div>
+      </div>
+      <div class="conf-pct" id="conf-pct">—</div>
+    </div>
+  </div>
+
+  <div id="history-section">
+    <h2>Ostatnie pomiary</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Czas</th>
+          <th>Jam</th>
+          <th>km/h</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="3" style="color:#6b7280">Brak danych</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const OPOLE = [50.6677, 17.9213];
+
+  const map = L.map('map', { zoomControl: true }).setView(OPOLE, 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  let marker = null;
+
+  function jamColor(jam) {
+    if (jam < 3)  return '#22c55e';
+    if (jam < 6)  return '#f59e0b';
+    if (jam < 8)  return '#f97316';
+    return '#ef4444';
+  }
+
+  function jamLabel(jam) {
+    if (jam < 3)  return 'Swobodny';
+    if (jam < 6)  return 'Umiarkowany';
+    if (jam < 8)  return 'Duży';
+    return 'Korek';
+  }
+
+  function showLoading() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('traffic-info').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'none';
+  }
+
+  function showError(msg) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'block';
+    document.getElementById('error-msg').textContent = msg;
+  }
+
+  function renderTraffic(data, lat, lon) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'none';
+
+    const info = document.getElementById('traffic-info');
+    info.style.display = 'flex';
+
+    const jam = data.jam_factor ?? 0;
+    const color = jamColor(jam);
+
+    document.getElementById('coords-label').textContent =
+      `${lat.toFixed(5)}, ${lon.toFixed(5)} · ${jamLabel(jam)}`;
+
+    const jamEl = document.getElementById('jam-value');
+    jamEl.textContent = jam.toFixed(1);
+    jamEl.style.color = color;
+
+    const bar = document.getElementById('jam-bar');
+    bar.style.width = `${(jam / 10) * 100}%`;
+    bar.style.background = color;
+
+    document.getElementById('speed-val').textContent =
+      data.speed != null ? Math.round(data.speed) : '—';
+    document.getElementById('ffs-val').textContent =
+      data.speed_limit != null ? Math.round(data.speed_limit) : '—';
+
+    const conf = (data.confidence ?? 0) * 100;
+    document.getElementById('conf-bar').style.width = `${conf}%`;
+    document.getElementById('conf-pct').textContent = `${conf.toFixed(0)}%`;
+  }
+
+  map.on('click', function (e) {
+    const { lat, lng } = e.latlng;
+
+    if (marker) map.removeLayer(marker);
+    marker = L.circleMarker([lat, lng], {
+      radius: 7,
+      color: '#fff',
+      fillColor: '#3b82f6',
+      fillOpacity: 1,
+      weight: 2,
+    }).addTo(map);
+
+    showLoading();
+
+    fetch('/api/traffic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lon: lng }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { showError(data.error); return; }
+        renderTraffic(data, lat, lng);
+      })
+      .catch(() => showError('Błąd połączenia z serwerem.'));
+  });
+
+  function loadHistory() {
+    fetch('/api/history?limit=10')
+      .then(r => r.json())
+      .then(rows => {
+        const tbody = document.getElementById('history-body');
+        if (!rows.length) return;
+        tbody.innerHTML = rows.map(r => {
+          const time = r.timestamp.slice(11, 16);
+          const jam  = r.jam_factor != null ? r.jam_factor.toFixed(1) : '—';
+          const spd  = r.speed != null ? Math.round(r.speed) : '—';
+          const col  = jamColor(r.jam_factor ?? 0);
+          return `<tr>
+            <td>${time}</td>
+            <td><span class="dot" style="background:${col}"></span>${jam}</td>
+            <td>${spd}</td>
+          </tr>`;
+        }).join('');
+      })
+      .catch(() => {});
+  }
+
+  loadHistory();
+  setInterval(loadHistory, 60000);
+</script>
+</body>
+</html>
